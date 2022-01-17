@@ -15,6 +15,9 @@ set_target_properties(Lua PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${LUA_LIBRARIES}"
 )
 
+# Copy lua scripts to build location
+file(COPY src/test.lua DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/Debug/)
+
 #=================================================
 # This is just to build the "Test" code.
 #=================================================

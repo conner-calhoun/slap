@@ -31,13 +31,19 @@ static lua_State* get_vm();
 template <typename T>
 static T get_global(const std::string& var);
 
+template <typename T>
+static T get_table_key(const std::string& table, const std::string& var);
+
 static void exec_string(const std::string& cmd);
-static void report_errors();
+static void exec_file(const std::string& file_path);
+static void check_state(int r);
+
 static void close();
 
 ///==================================================
 /// IMPLMENTATION
 ///==================================================
+
 #ifdef SLAP_IMPL
 
 template <typename... Args>
@@ -71,20 +77,62 @@ static T get_global(const std::string& var) {
     return -1;
 }
 
+/// Need one for each type sadly:(
+template <typename T>
+static T get_table_key(const std::string& table, const std::string& var) {
+    auto* vm = slap::get_vm();
+    T to_return;
+
+    lua_getglobal(vm, table.c_str());
+    if (lua_istable(vm, -1)) {
+        lua_pushstring(vm, var.c_str());
+        lua_gettable(vm, -2);
+
+        if (std::is_same<T, int>::value) {
+            if (lua_isinteger(vm, -1)) {
+                to_return = lua_tointeger(vm, -1);
+            }
+        } else if (std::is_same<T, float>::value) {
+            if (lua_isnumber(vm, -1)) {
+                to_return = lua_tonumber(vm, -1);
+            }
+        } else if (std::is_same<T, bool>::value) {
+            if (lua_isboolean(vm, -1)) {
+                to_return = lua_toboolean(vm, -1);
+            }
+        } else if (std::is_same<T, std::string>::value) {
+            if (lua_isstring(vm, -1)) {
+                to_return = lua_tostring(vm, -1);
+            }
+        }
+
+        lua_pop(vm, 1);
+    }
+
+    return to_return;
+}
+
 static void exec_string(const std::string& cmd) {
     auto* vm = slap::get_vm();
     int r = luaL_dostring(vm, cmd.c_str());
 
-    if (r != LUA_OK) {
-        slap::report_errors();
-    }
+    slap::check_state(r);
 }
 
-static void report_errors() {
+static void exec_file(const std::string& file_path) {
+    auto* vm = slap::get_vm();
+    int r = luaL_dofile(vm, file_path.c_str());
+
+    slap::check_state(r);
+}
+
+static void check_state(int r) {
     auto* vm = get_vm();
 
-    std::string errs = lua_tostring(vm, -1);
-    ERRLOG(errs);
+    if (r != LUA_OK) {
+        std::string errs = lua_tostring(vm, -1);
+        ERRLOG(errs);
+    }
 }
 
 static void close() {

@@ -4,12 +4,12 @@
 #include "slap.h"
 
 int main() {
-    std::string cmd = "a = 6 + 11";
+    std::string test_lua = "test.lua";
+    slap::exec_file(test_lua);
 
-    slap::exec_string(cmd);
-    float a = slap::get_global<float>("a");
+    std::string name = slap::get_table_key<std::string>("person", "name");
 
-    slap::LOG("My Result: ", a);
+    slap::LOG("My Result: ", name);
 
     slap::close();  // always close vm
     return 0;
