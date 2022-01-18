@@ -28,11 +28,16 @@ static void ERRLOG(Args&&... args);
 
 static lua_State* get_vm();
 
+/// Access a global variable
 template <typename T>
 static T get_global(const std::string& var);
 
+/// Access a table's given key
 template <typename T>
 static T get_table_key(const std::string& table, const std::string& var);
+
+template <typename T>
+static void get_value(T& value);
 
 static void exec_string(const std::string& cmd);
 static void exec_file(const std::string& file_path);
@@ -67,19 +72,45 @@ static lua_State* get_vm() {
 }
 
 template <typename T>
-static T get_global(const std::string& var) {
+static void get_value(T& value) {
     auto* vm = slap::get_vm();
-    lua_getglobal(vm, var.c_str());
-    if (lua_isnumber(vm, -1)) {
-        return (float)lua_tonumber(vm, -1);
-    }
 
-    return -1;
+    /// Use constexpr evaluation to determine which accessor needs to be used
+    if constexpr (std::is_same<T, size_t>::value) {
+        if (lua_isinteger(vm, -1)) {
+            value = lua_tointeger(vm, -1);
+        }
+    }
+    if constexpr (std::is_same<T, float>::value) {
+        if (lua_isnumber(vm, -1)) {
+            value = lua_tonumber(vm, -1);
+        }
+    }
+    if constexpr (std::is_same<T, bool>::value) {
+        if (lua_isboolean(vm, -1)) {
+            value = lua_toboolean(vm, -1);
+        }
+    }
+    if constexpr (std::is_same<T, std::string>::value) {
+        if (lua_isstring(vm, -1)) {
+            value = lua_tostring(vm, -1);
+        }
+    }
 }
 
-/// Need one for each type sadly:(
 template <typename T>
-static auto get_table_key(const std::string& table, const std::string& var) -> T {
+static T get_global(const std::string& var) {
+    auto* vm = slap::get_vm();
+    T to_return{};
+
+    lua_getglobal(vm, var.c_str());
+    slap::get_value<T>(to_return);
+
+    return to_return;
+}
+
+template <typename T>
+static T get_table_key(const std::string& table, const std::string& var) {
     auto* vm = slap::get_vm();
     T to_return{};
 
@@ -88,27 +119,7 @@ static auto get_table_key(const std::string& table, const std::string& var) -> T
         lua_pushstring(vm, var.c_str());
         lua_gettable(vm, -2);
 
-        /// Use constexpr evaluation to determine which accessor needs to be used
-        if constexpr (std::is_same<T, size_t>::value) {
-            if (lua_isinteger(vm, -1)) {
-                to_return = lua_tointeger(vm, -1);
-            }
-        }
-        if constexpr (std::is_same<T, float>::value) {
-            if (lua_isnumber(vm, -1)) {
-                to_return = lua_tonumber(vm, -1);
-            }
-        }
-        if constexpr (std::is_same<T, bool>::value) {
-            if (lua_isboolean(vm, -1)) {
-                to_return = lua_toboolean(vm, -1);
-            }
-        }
-        if constexpr (std::is_same<T, std::string>::value) {
-            if (lua_isstring(vm, -1)) {
-                to_return = lua_tostring(vm, -1);
-            }
-        }
+        slap::get_value<T>(to_return);
 
         lua_pop(vm, 1);
     }
