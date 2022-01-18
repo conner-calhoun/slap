@@ -1,1 +1,1 @@
-person = { name = "Conner", age = 25}
+person = { name = "Kaitlyn", age = 25, cool = true }
